@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hackflow-2026",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-08-28",
+  "kv_namespaces": [
+    {
+      "binding": "SECURITY_KV",
+      "id": "9848e29e78ce4dff993001c8ed44785d"
+    }
+  ]
+}

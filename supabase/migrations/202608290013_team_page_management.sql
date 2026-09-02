@@ -1,0 +1,10 @@
+alter table public.system_config add column if not exists team_tagline text not null default '让每一次行动，都通往更大的可能。', add column if not exists team_intro text not null default 'Matrix Nova 由一群相信创造、协作与真实行动的人共同发起。', add column if not exists team_principles text not null default '从真实问题出发｜让创造者相遇｜把想法做成作品';
+create table if not exists public.site_team_members (id uuid primary key default gen_random_uuid(), name text not null, role text not null, bio text not null default '', image_url text, sort_order integer not null default 0, created_at timestamptz not null default now());
+alter table public.site_team_members enable row level security;
+drop policy if exists "public read site team members" on public.site_team_members;
+create policy "public read site team members" on public.site_team_members for select to public using (true);
+drop policy if exists "admins manage site team members" on public.site_team_members;
+create policy "admins manage site team members" on public.site_team_members for all to authenticated using (public.is_admin()) with check (public.is_admin());
+grant select, insert, update, delete on public.site_team_members to authenticated;
+create or replace function public.get_public_team_page() returns jsonb language sql stable security definer set search_path=public as $$ select jsonb_build_object('tagline',(select team_tagline from system_config where id=1),'intro',(select team_intro from system_config where id=1),'principles',(select team_principles from system_config where id=1),'members',coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'role',role,'bio',bio,'image_url',image_url,'sort_order',sort_order) order by sort_order,created_at) from site_team_members),'[]'::jsonb)); $$;
+grant execute on function public.get_public_team_page() to anon, authenticated;

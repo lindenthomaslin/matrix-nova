@@ -1,0 +1,1 @@
+<template><main class="event-empty grid min-h-screen place-items-center px-6"><div class="text-center"><p class="event-empty-kicker">404</p><h1 class="mt-2 text-4xl font-semibold tracking-tight">页面走丢了。</h1><p class="mt-3">你访问的地址不存在或已经移动。</p><RouterLink to="/" class="primary-button mt-7">回到赛事首页</RouterLink></div></main></template>

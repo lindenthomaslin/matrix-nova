@@ -1,0 +1,2 @@
+<script setup lang="ts">import { ShieldX } from '@lucide/vue'</script>
+<template><main class="event-empty grid min-h-screen place-items-center px-6"><div class="text-center"><div class="event-empty-icon mx-auto mb-5"><ShieldX :size="30" /></div><p class="event-empty-kicker">403 · 权限不足</p><h1 class="mt-2 text-4xl font-semibold tracking-tight">这里仅对管理员开放。</h1><p class="mt-3">当前账号没有访问开发者后台的权限。</p><RouterLink to="/dashboard" class="secondary-button mt-7">返回个人控制台</RouterLink></div></main></template>
