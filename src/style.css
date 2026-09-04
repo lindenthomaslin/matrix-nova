@@ -445,13 +445,19 @@ tr:hover td { background: rgba(0,0,0,.016); }.dark tr:hover td { background: rgb
 .user-mobile-nav { display: none; }
 @media (max-width: 720px) {
   .user-sidebar .user-nav { display: none; }
-  .user-mobile-nav { position: fixed; z-index: 60; right: .65rem; bottom: max(.65rem, env(safe-area-inset-bottom)); left: .65rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: .25rem; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; background: rgba(23,23,24,.9); padding: .35rem; box-shadow: 0 14px 40px rgba(0,0,0,.35); backdrop-filter: blur(22px); }
+  .user-mobile-nav { position: fixed; z-index: 60; right: .65rem; bottom: max(.65rem, env(safe-area-inset-bottom)); left: .65rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; background: rgba(23,23,24,.9); padding: .35rem; box-shadow: 0 14px 40px rgba(0,0,0,.35); backdrop-filter: blur(22px); }
   .user-mobile-nav button, .user-mobile-nav a { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: .2rem; border-radius: 13px; padding: .45rem .2rem; color: #8c8781; font-size: .61rem; transition: color .18s, background .18s; }
   .user-mobile-nav button.active, .user-mobile-nav a.active { background: rgba(228,154,87,.15); color: #efa561; }
   .user-mobile-nav button:last-child { color: #d78678; }
   .user-mobile-nav a { color: #e4a15e; }
-  .user-content-scroll { padding-bottom: calc(5.8rem + env(safe-area-inset-bottom)); }
+  .user-content-scroll { padding-bottom: calc(10.2rem + env(safe-area-inset-bottom)); }
 }
+
+.user-quick-action { display: flex; min-height: 118px; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: .35rem; border: 1px solid #302e2d; border-radius: 12px; background: linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.018)); padding: 1rem; color: #e8a365; text-align: left; transition: border-color .18s, background .18s, transform .18s; }
+.user-quick-action:hover { border-color: rgba(228,154,87,.52); background: rgba(228,154,87,.08); transform: translateY(-2px); }
+.user-quick-action span { color: #f2ede6; font-size: .86rem; font-weight: 700; }
+.user-quick-action small { color: #928a81; font-size: .68rem; }
+@media (max-width: 720px) { .user-quick-action { min-height: 106px; padding: .85rem; } }
 
 /* WeChat/X5 can return a zero safe-area inset. Use the measured WebView
    fallback so fixed controls remain above its bottom toolbar. */
