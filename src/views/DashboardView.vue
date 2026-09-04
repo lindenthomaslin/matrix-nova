@@ -2,13 +2,14 @@
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, Copy, Crown, FilePenLine, LayoutDashboard, LogOut, MapPin, MessageCircle, Save, Settings2, ShieldCheck, Sparkles, Trash2, UserPlus, UserRound, XCircle } from '@lucide/vue'
 import QRCode from 'qrcode'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { readableError, supabase } from '../lib/supabase'
 import { useBranding } from '../lib/branding'
 import type { Registration, RegistrationStatus } from '../lib/types'
 
 const auth = useAuth()
+const route = useRoute()
 const router = useRouter()
 const { siteName, siteSubtitle, loadBranding } = useBranding()
 type TeamMember = { user_id: string; role: 'leader' | 'member' | 'pending'; joined_at: string; nickname: string; email: string }
@@ -21,7 +22,13 @@ const errorMessage = ref('')
 const saved = ref(false)
 const accountSaved = ref(false)
 const registration = ref<Registration | null>(null)
-const activePanel = ref<'home' | 'registration' | 'application' | 'team' | 'community' | 'profile' | 'settings'>('home')
+type DashboardPanel = 'home' | 'registration' | 'application' | 'team' | 'community' | 'profile' | 'settings'
+const dashboardPanels: DashboardPanel[] = ['home', 'registration', 'application', 'team', 'community', 'profile', 'settings']
+function panelFromRoute(): DashboardPanel {
+  const panel = route.query.panel
+  return typeof panel === 'string' && dashboardPanels.includes(panel as DashboardPanel) ? panel as DashboardPanel : 'home'
+}
+const activePanel = ref<DashboardPanel>(panelFromRoute())
 const applicationStep = ref(1)
 const draftSaved = ref(false)
 const qrCodeUrl = ref('')
@@ -69,6 +76,7 @@ function restoreDraft() {
   } catch { localStorage.removeItem(key) }
 }
 watch(form, persistDraft, { deep: true })
+watch(() => route.query.panel, () => { activePanel.value = panelFromRoute() })
 
 function syncForm(data: Registration) { Object.assign(form, { ...data, skills: data.skills?.join('，') || '', portfolio_url: data.portfolio_url || '' }) }
 function openApplication() {

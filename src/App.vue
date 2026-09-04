@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, LayoutDashboard, Moon, ShieldCheck, Sun } from '@lucide/vue'
+import { ArrowRight, FilePenLine, LayoutDashboard, MessageCircle, Moon, ShieldCheck, Sun, UserPlus } from '@lucide/vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -76,7 +76,14 @@ function toggleTheme() {
         </div>
       </nav>
     </header>
-    <nav v-if="showPublicNav && auth.isAdmin.value" class="public-mobile-nav" aria-label="管理员移动端导航"><RouterLink to="/dashboard"><LayoutDashboard :size="18" /><span>个人控制台</span></RouterLink><RouterLink to="/developer" class="active"><ShieldCheck :size="18" /><span>进入后台</span></RouterLink><button @click="auth.signOut()"><ArrowRight :size="18" /><span>退出登录</span></button></nav>
+    <nav v-if="showPublicNav && auth.isLoggedIn.value" class="public-mobile-nav" aria-label="移动端快捷导航">
+      <RouterLink to="/dashboard"><LayoutDashboard :size="18" /><span>控制台</span></RouterLink>
+      <RouterLink to="/dashboard?panel=registration"><FilePenLine :size="18" /><span>我的报名</span></RouterLink>
+      <RouterLink to="/dashboard?panel=team"><UserPlus :size="18" /><span>团队管理</span></RouterLink>
+      <RouterLink to="/dashboard?panel=community"><MessageCircle :size="18" /><span>社区交流</span></RouterLink>
+      <RouterLink v-if="auth.isAdmin.value" to="/developer"><ShieldCheck :size="18" /><span>进入后台</span></RouterLink>
+      <button @click="auth.signOut()"><ArrowRight :size="18" /><span>退出登录</span></button>
+    </nav>
     <RouterView v-slot="{ Component }"><Transition name="public-page" mode="out-in"><component :is="Component" :key="route.path" /></Transition></RouterView>
   </div>
 </template>

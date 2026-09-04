@@ -408,8 +408,8 @@ tr:hover td { background: rgba(0,0,0,.016); }.dark tr:hover td { background: rgb
   .auth-page, .hack-auth-page, .event-home, .event-empty { min-height: 100svh; }
   .event-public-nav .event-public-admin-link { display: inline-flex; align-items: center; gap: .25rem; color: #e7a163; }
   .public-mobile-nav { position: fixed; z-index: 60; right: .65rem; bottom: max(.65rem, env(safe-area-inset-bottom)); left: .65rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .25rem; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; background: rgba(23,23,24,.9); padding: .35rem; box-shadow: 0 14px 40px rgba(0,0,0,.35); backdrop-filter: blur(22px); }
-  .public-mobile-nav a, .public-mobile-nav button { display: flex; align-items: center; justify-content: center; gap: .3rem; border-radius: 13px; padding: .65rem .25rem; color: #bcb6ae; font-size: .68rem; }
-  .public-mobile-nav a.active { background: rgba(228,154,87,.15); color: #efa561; }
+  .public-mobile-nav a, .public-mobile-nav button { display: flex; align-items: center; justify-content: center; gap: .3rem; min-height: 42px; border-radius: 13px; padding: .65rem .25rem; color: #bcb6ae; font-size: .68rem; white-space: nowrap; }
+  .public-mobile-nav a.router-link-active { background: rgba(228,154,87,.15); color: #efa561; }
   .public-mobile-nav button { color: #d78678; }
 }
 
