@@ -4,6 +4,7 @@ import QRCode from 'qrcode'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { useCommunity, type CommunityPost } from '../composables/useCommunity'
 import { readableError, supabase } from '../lib/supabase'
 import { useBranding } from '../lib/branding'
 import type { Registration, RegistrationStatus } from '../lib/types'
@@ -14,7 +15,6 @@ const router = useRouter()
 const { siteName, siteSubtitle, loadBranding } = useBranding()
 type TeamMember = { user_id: string; role: 'leader' | 'member' | 'pending'; joined_at: string; nickname: string; email: string }
 type Team = { id: string; name: string; invite_code: string; leader_id: string; created_at: string; membership_role?: TeamMember['role']; members: TeamMember[] }
-type CommunityPost = { id: string; author_id: string; content: string | null; created_at: string; nickname: string; reply_to?: string | null; reply_nickname?: string | null; reply_content?: string | null; retracted_at?: string | null; admin_deleted_at?: string | null }
 const loading = ref(true)
 const saving = ref(false)
 const editing = ref(false)
@@ -39,9 +39,8 @@ const teamName = ref('')
 const inviteCode = ref('')
 const teamNotice = ref('')
 const transferTarget = ref('')
-const communityPosts = ref<CommunityPost[]>([])
+const { posts: communityPosts, loading: communityLoading, unreadCount: communityUnread, load: loadCommunity, setViewing: setCommunityViewing, start: startCommunity } = useCommunity()
 const communityDraft = ref('')
-const communityLoading = ref(false)
 const communityChatRef = ref<HTMLElement | null>(null)
 const replyToPost = ref<CommunityPost | null>(null)
 const form = reactive({ full_name: '', gender: '', age: null as number | null, education: '', phone: '', applicant_email: '', identity_type: '', organization: '', participation_mode: '个人参赛', team_name: '', skills: '', track: '', bio: '', motivation: '', parent_name: '', parent_phone: '', rules_agreed: false, guardian_agreed: false, github_url: '', portfolio_url: '' })
@@ -77,6 +76,24 @@ function restoreDraft() {
 }
 watch(form, persistDraft, { deep: true })
 watch(() => route.query.panel, () => { activePanel.value = panelFromRoute() })
+watch(activePanel, panel => {
+  setCommunityViewing(panel === 'community')
+  if (panel === 'community') void nextTick(() => { if (communityChatRef.value) communityChatRef.value.scrollTop = communityChatRef.value.scrollHeight })
+})
+watch(() => communityPosts.value.length, async (count, previous) => {
+  if (!count) return
+  await nextTick()
+  const element = communityChatRef.value
+  if (!element || activePanel.value !== 'community') return
+  const latest = communityPosts.value[count - 1]
+  const nearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 120
+  // 首次加载、贴底浏览或自己发的消息：自动滚到底；正在翻历史时不打扰
+  if (!previous || nearBottom || latest?.author_id === auth.user.value?.id) element.scrollTop = element.scrollHeight
+})
+function openCommunity() {
+  activePanel.value = 'community'
+  void loadCommunity()
+}
 
 function syncForm(data: Registration) { Object.assign(form, { ...data, skills: data.skills?.join('，') || '', portfolio_url: data.portfolio_url || '' }) }
 function openApplication() {
@@ -182,15 +199,6 @@ async function leaveTeam() {
   if (error) { errorMessage.value = readableError(error); return }
   team.value = null; teamNotice.value = '已退出队伍。'
 }
-async function loadCommunity() {
-  communityLoading.value = true
-  const { data, error } = await supabase.rpc('get_community_posts')
-  communityLoading.value = false
-  if (error) { errorMessage.value = readableError(error); return }
-  communityPosts.value = (data || []) as CommunityPost[]
-  await nextTick()
-  if (communityChatRef.value) communityChatRef.value.scrollTop = communityChatRef.value.scrollHeight
-}
 async function publishCommunityPost() {
   if (saving.value) return
   if (!communityDraft.value.trim() || !auth.user.value) return
@@ -228,7 +236,7 @@ async function load() {
   registration.value = data
   if (data) syncForm(data)
   await loadTeam()
-  await loadCommunity()
+  if (auth.user.value) startCommunity(auth.user.value.id)
   await refreshCheckInCode()
   restoreDraft()
   loading.value = false
@@ -306,7 +314,7 @@ onMounted(load)
       <aside class="user-sidebar">
         <div class="user-sidebar-top"><RouterLink to="/" class="user-brand"><span>M</span><b>{{ siteName }}</b></RouterLink><span class="user-sidebar-tag">PASSPORT</span></div>
         <p class="user-nav-label">个人空间</p>
-        <nav class="user-nav"><button :class="{ active: activePanel === 'home' }" @click="activePanel = 'home'"><LayoutDashboard :size="17" /><span>控制台首页</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'registration' || activePanel === 'application' }" @click="activePanel = 'registration'"><FilePenLine :size="17" /><span>我的报名</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'team' }" @click="activePanel = 'team'"><UserPlus :size="17" /><span>我的队伍</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'community' }" @click="activePanel = 'community'; loadCommunity()"><MessageCircle :size="17" /><span>公共社区</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'profile' }" @click="activePanel = 'profile'"><UserRound :size="17" /><span>个人资料</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'settings' }" @click="activePanel = 'settings'"><Settings2 :size="17" /><span>账户设置</span><ArrowLeft :size="14" class="user-nav-arrow" /></button></nav>
+        <nav class="user-nav"><button :class="{ active: activePanel === 'home' }" @click="activePanel = 'home'"><LayoutDashboard :size="17" /><span>控制台首页</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'registration' || activePanel === 'application' }" @click="activePanel = 'registration'"><FilePenLine :size="17" /><span>我的报名</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'team' }" @click="activePanel = 'team'"><UserPlus :size="17" /><span>我的队伍</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'community' }" @click="openCommunity()"><MessageCircle :size="17" /><span>公共社区</span><span v-if="communityUnread > 0" class="nav-unread-badge">{{ communityUnread > 99 ? '99+' : communityUnread }}</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'profile' }" @click="activePanel = 'profile'"><UserRound :size="17" /><span>个人资料</span><ArrowLeft :size="14" class="user-nav-arrow" /></button><button :class="{ active: activePanel === 'settings' }" @click="activePanel = 'settings'"><Settings2 :size="17" /><span>账户设置</span><ArrowLeft :size="14" class="user-nav-arrow" /></button></nav>
         <div class="user-profile-card user-profile-card-below"><div class="user-avatar"><UserRound :size="19" /></div><div class="min-w-0"><p class="truncate font-semibold">{{ auth.profile.value?.nickname || '创造者' }}</p><p class="truncate text-xs text-secondary">{{ auth.profile.value?.email || 'HackFlow Passport' }}</p></div></div>
         <div class="user-sidebar-bottom"><RouterLink v-if="auth.isAdmin.value" to="/developer" class="user-admin-link"><Sparkles :size="16" />开发者后台</RouterLink><button class="user-logout" @click="logout"><LogOut :size="16" />退出登录</button></div>
       </aside>
@@ -316,7 +324,7 @@ onMounted(load)
           <div v-if="errorMessage" class="alert-error mb-5">{{ errorMessage }}</div>
           <template v-if="activePanel === 'home'">
             <div class="user-page-intro"><div><p class="section-label">WELCOME BACK</p><h2>你好，{{ auth.profile.value?.nickname || '创造者' }}</h2><p class="text-secondary">在这里查看赛事安排、报名进度和最新通知。</p></div><span class="user-page-code">HOME / HF</span></div>
-            <section class="user-panel-card user-quick-access"><div class="panel-card-heading"><div><p class="section-label">QUICK ACCESS</p><h2>常用功能</h2><p class="mt-2 text-secondary">报名、团队和社区入口就在这里。</p></div><Sparkles :size="22"/></div><div class="grid grid-cols-2 gap-3 sm:grid-cols-4"><button type="button" class="user-quick-action" @click="activePanel = 'registration'"><FilePenLine :size="19"/><span>报名管理</span><small>查看进度</small></button><button type="button" class="user-quick-action" @click="activePanel = 'team'"><UserPlus :size="19"/><span>团队管理</span><small>创建或加入</small></button><button type="button" class="user-quick-action" @click="activePanel = 'community'; loadCommunity()"><MessageCircle :size="19"/><span>社区交流</span><small>寻找伙伴</small></button><button type="button" class="user-quick-action" @click="activePanel = 'profile'"><UserRound :size="19"/><span>个人资料</span><small>账户信息</small></button></div></section>
+            <section class="user-panel-card user-quick-access"><div class="panel-card-heading"><div><p class="section-label">QUICK ACCESS</p><h2>常用功能</h2><p class="mt-2 text-secondary">报名、团队和社区入口就在这里。</p></div><Sparkles :size="22"/></div><div class="grid grid-cols-2 gap-3 sm:grid-cols-4"><button type="button" class="user-quick-action" @click="activePanel = 'registration'"><FilePenLine :size="19"/><span>报名管理</span><small>查看进度</small></button><button type="button" class="user-quick-action" @click="activePanel = 'team'"><UserPlus :size="19"/><span>团队管理</span><small>创建或加入</small></button><button type="button" class="user-quick-action" @click="openCommunity()"><MessageCircle :size="19"/><span>社区交流</span><small>寻找伙伴</small><span v-if="communityUnread > 0" class="nav-unread-badge nav-badge-float">{{ communityUnread > 99 ? '99+' : communityUnread }}</span></button><button type="button" class="user-quick-action" @click="activePanel = 'profile'"><UserRound :size="19"/><span>个人资料</span><small>账户信息</small></button></div></section>
             <div class="grid gap-4 lg:grid-cols-[1.1fr_.9fr]"><section class="user-status-card"><div><p class="text-sm text-secondary">报名状态</p><div class="mt-2 flex items-center gap-2 text-2xl font-semibold"><Clock3 v-if="!registration || registration.status === 'pending'" class="text-amber-500"/><CheckCircle2 v-else-if="registration.status === 'accepted'" class="text-green-500"/><XCircle v-else class="text-red-500"/>{{ registration ? statusInfo.label : registrationOpen ? '尚未报名' : '报名暂未开放' }}</div><p class="mt-2 max-w-xl text-sm text-secondary">{{ registration ? '报名已提交，审核状态更新后会在这里显示。' : registrationOpen ? '报名通道已开启，完成资料后即可进入审核。' : '请留意下方公告，等待下一次报名开放。' }}</p></div><button v-if="!registration && registrationOpen" type="button" class="primary-button self-start text-sm" @click="openApplication"><FilePenLine :size="17"/>填写报名表</button><button v-else type="button" class="secondary-button self-start text-sm" @click="activePanel = 'registration'">查看报名详情</button></section><section class="user-panel-card"><div class="panel-card-heading"><div><p class="section-label">EVENT INFO</p><h2>赛事信息</h2></div><CalendarDays :size="22"/></div><div class="space-y-4 text-sm"><div class="flex items-center gap-3"><CalendarDays :size="17" class="text-amber-500"/><div><p class="text-secondary">赛事时间</p><b>{{ consoleInfo.date }}</b></div></div><div class="flex items-center gap-3"><MapPin :size="17" class="text-amber-500"/><div><p class="text-secondary">活动地点</p><b>{{ consoleInfo.location }}</b></div></div><div class="flex items-center gap-3"><UserPlus :size="17" class="text-amber-500"/><div><p class="text-secondary">参与规模</p><b>{{ consoleInfo.capacity }}</b></div></div></div></section></div>
             <section class="user-panel-card mt-4"><div class="panel-card-heading"><div><p class="section-label">ANNOUNCEMENT</p><h2>{{ consoleInfo.announcementTitle }}</h2><p class="mt-2 text-secondary">赛事团队发布的重要信息会显示在这里。</p></div><MessageCircle :size="22"/></div><p class="whitespace-pre-wrap text-sm leading-7 text-secondary">{{ consoleInfo.announcement }}</p></section>
           </template>
@@ -354,7 +362,7 @@ onMounted(load)
             </template>
           </template>
           <template v-else-if="activePanel === 'community'">
-            <section class="community-chat-shell"><header class="community-chat-head"><div class="community-chat-title"><div class="community-channel-avatar"><MessageCircle :size="20"/></div><div><p>公共频道</p><span>{{ communityPosts.length }} 条消息 · 所有 Matrix Nova 选手可见</span></div></div><button class="icon-button" title="刷新消息" @click="loadCommunity"><MessageCircle :size="17"/></button></header><div ref="communityChatRef" class="community-chat-messages"><div class="community-notice">欢迎来到 Matrix Nova 公共频道，请友善交流、寻找队友并分享灵感。</div><div v-if="communityLoading" class="community-chat-empty">正在连接公共频道…</div><div v-else-if="!communityPosts.length" class="community-chat-empty">频道还没有消息，和大家打个招呼吧。</div><article v-for="post in communityPosts" :key="post.id" class="community-message" :class="{ mine: post.author_id === auth.user.value?.id }"><div v-if="post.author_id !== auth.user.value?.id" class="community-message-avatar">{{ (post.nickname || 'M').slice(0, 1) }}</div><div class="community-message-body"><div class="community-message-meta"><b>{{ post.author_id === auth.user.value?.id ? '我' : (post.nickname || 'Matrix Nova 选手') }}</b><span>{{ new Date(post.created_at).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }}</span></div><div v-if="post.reply_to" class="community-reply-quote">回复 {{ post.reply_nickname || '一条消息' }}：{{ post.reply_content || '该消息已撤回或删除' }}</div><p v-if="post.admin_deleted_at" class="community-message-state">管理员删除了一条消息</p><p v-else-if="post.retracted_at" class="community-message-state">对方撤回了一条消息</p><p v-else>{{ post.content }}</p><button v-if="!post.retracted_at && !post.admin_deleted_at" class="community-reply-button" @click="replyToPost = post">引用回复</button></div><button v-if="!post.retracted_at && !post.admin_deleted_at && (post.author_id === auth.user.value?.id || auth.isAdmin.value)" class="community-delete" :title="post.author_id === auth.user.value?.id ? '撤回消息' : '管理员删除消息'" @click="deleteCommunityPost(post)"><Trash2 :size="14"/></button></article></div><form class="community-chat-input" @submit.prevent="publishCommunityPost"><div v-if="replyToPost" class="community-replying">正在引用 {{ replyToPost.author_id === auth.user.value?.id ? '自己' : replyToPost.nickname }}：{{ replyToPost.content }}<button type="button" @click="replyToPost = null">取消</button></div><textarea v-model.trim="communityDraft" maxlength="100" placeholder="输入消息，按发送与大家交流…" @keydown.enter.exact.prevent="publishCommunityPost"></textarea><div><small>{{ communityDraft.length }} / 100</small><button class="primary-button" :disabled="saving || !communityDraft.trim()">发送</button></div></form></section>
+            <section class="community-chat-shell"><header class="community-chat-head"><div class="community-chat-title"><div class="community-channel-avatar"><MessageCircle :size="20"/></div><div><p>公共频道</p><span>{{ communityPosts.length }} 条消息 · 所有 Matrix Nova 选手可见</span></div></div><button class="icon-button" title="刷新消息" @click="loadCommunity()"><MessageCircle :size="17"/></button></header><div ref="communityChatRef" class="community-chat-messages"><div class="community-notice">欢迎来到 Matrix Nova 公共频道，请友善交流、寻找队友并分享灵感。</div><div v-if="communityLoading" class="community-chat-empty">正在连接公共频道…</div><div v-else-if="!communityPosts.length" class="community-chat-empty">频道还没有消息，和大家打个招呼吧。</div><article v-for="post in communityPosts" :key="post.id" class="community-message" :class="{ mine: post.author_id === auth.user.value?.id }"><div v-if="post.author_id !== auth.user.value?.id" class="community-message-avatar">{{ (post.nickname || 'M').slice(0, 1) }}</div><div class="community-message-body"><div class="community-message-meta"><b>{{ post.author_id === auth.user.value?.id ? '我' : (post.nickname || 'Matrix Nova 选手') }}</b><span>{{ new Date(post.created_at).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }}</span></div><div v-if="post.reply_to" class="community-reply-quote">回复 {{ post.reply_nickname || '一条消息' }}：{{ post.reply_content || '该消息已撤回或删除' }}</div><p v-if="post.admin_deleted_at" class="community-message-state">管理员删除了一条消息</p><p v-else-if="post.retracted_at" class="community-message-state">对方撤回了一条消息</p><p v-else>{{ post.content }}</p><button v-if="!post.retracted_at && !post.admin_deleted_at" class="community-reply-button" @click="replyToPost = post">引用回复</button></div><button v-if="!post.retracted_at && !post.admin_deleted_at && (post.author_id === auth.user.value?.id || auth.isAdmin.value)" class="community-delete" :title="post.author_id === auth.user.value?.id ? '撤回消息' : '管理员删除消息'" @click="deleteCommunityPost(post)"><Trash2 :size="14"/></button></article></div><form class="community-chat-input" @submit.prevent="publishCommunityPost"><div v-if="replyToPost" class="community-replying">正在引用 {{ replyToPost.author_id === auth.user.value?.id ? '自己' : replyToPost.nickname }}：{{ replyToPost.content }}<button type="button" @click="replyToPost = null">取消</button></div><textarea v-model.trim="communityDraft" maxlength="100" placeholder="输入消息，按发送与大家交流…" @keydown.enter.exact.prevent="publishCommunityPost"></textarea><div><small>{{ communityDraft.length }} / 100</small><button class="primary-button" :disabled="saving || !communityDraft.trim()">发送</button></div></form></section>
           </template>
           <template v-else-if="activePanel === 'profile'">
             <div class="user-page-intro"><div><p class="section-label">PROFILE</p><h2>个人资料</h2><p class="text-secondary">更新你的公开昵称与账号信息。</p></div></div>
@@ -367,6 +375,6 @@ onMounted(load)
         </div>
       </section>
     </div>
-    <nav class="user-mobile-nav" aria-label="移动端导航"><button :class="{ active: activePanel === 'home' }" @click="activePanel = 'home'"><LayoutDashboard :size="18"/><span>首页</span></button><button :class="{ active: activePanel === 'registration' || activePanel === 'application' }" @click="activePanel = 'registration'"><FilePenLine :size="18"/><span>报名</span></button><button :class="{ active: activePanel === 'team' }" @click="activePanel = 'team'"><UserPlus :size="18"/><span>队伍</span></button><button :class="{ active: activePanel === 'community' }" @click="activePanel = 'community'; loadCommunity()"><MessageCircle :size="18"/><span>社区</span></button><button :class="{ active: activePanel === 'profile' }" @click="activePanel = 'profile'"><UserRound :size="18"/><span>资料</span></button><button :class="{ active: activePanel === 'settings' }" @click="activePanel = 'settings'"><Settings2 :size="18"/><span>设置</span></button><RouterLink v-if="auth.isAdmin.value" to="/developer"><Sparkles :size="18"/><span>后台</span></RouterLink><button @click="logout"><LogOut :size="18"/><span>退出</span></button></nav>
+    <nav class="user-mobile-nav" aria-label="移动端导航"><button :class="{ active: activePanel === 'home' }" @click="activePanel = 'home'"><LayoutDashboard :size="18"/><span>首页</span></button><button :class="{ active: activePanel === 'registration' || activePanel === 'application' }" @click="activePanel = 'registration'"><FilePenLine :size="18"/><span>报名</span></button><button :class="{ active: activePanel === 'team' }" @click="activePanel = 'team'"><UserPlus :size="18"/><span>队伍</span></button><button :class="{ active: activePanel === 'community' }" @click="openCommunity()"><MessageCircle :size="18"/><span>社区</span><span v-if="communityUnread > 0" class="nav-unread-badge">{{ communityUnread > 99 ? '99+' : communityUnread }}</span></button><button :class="{ active: activePanel === 'profile' }" @click="activePanel = 'profile'"><UserRound :size="18"/><span>资料</span></button><button :class="{ active: activePanel === 'settings' }" @click="activePanel = 'settings'"><Settings2 :size="18"/><span>设置</span></button><RouterLink v-if="auth.isAdmin.value" to="/developer"><Sparkles :size="18"/><span>后台</span></RouterLink><button @click="logout"><LogOut :size="18"/><span>退出</span></button></nav>
   </main>
 </template>
