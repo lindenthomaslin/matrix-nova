@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, FilePenLine, LayoutDashboard, MessageCircle, Moon, ShieldCheck, Sun, UserPlus } from '@lucide/vue'
+import { ArrowRight, CalendarDays, FilePenLine, Info, LayoutDashboard, LogIn, Menu, MessageCircle, Moon, ShieldCheck, Sun, UserPlus, Users, X } from '@lucide/vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -13,6 +13,7 @@ const route = useRoute()
 const auth = useAuth()
 const { siteIcon, siteName, siteSubtitle, loadBranding } = useBranding()
 const showPublicNav = computed(() => ['/', '/event', '/team', '/about'].includes(route.path))
+const mobileMenuOpen = ref(false)
 const isWechat = typeof navigator !== 'undefined' && /MicroMessenger/i.test(navigator.userAgent)
 type WechatBridgeWindow = Window & { WeixinJSBridge?: { call: (command: string) => unknown } }
 function syncWechatViewport() {
@@ -39,6 +40,7 @@ function hideWechatToolbar(path: string) {
   window.setTimeout(invoke, 450)
 }
 watch(() => route.path, hideWechatToolbar, { immediate: true })
+watch(() => route.path, () => { mobileMenuOpen.value = false })
 watch(() => route.fullPath, (path) => { void trackPageView(path, auth.user.value?.id) }, { immediate: true })
 onMounted(async () => {
   getClientSecurityId()
@@ -73,8 +75,23 @@ function toggleTheme() {
             <Moon v-else :size="17" />
           </button>
           <RouterLink :to="auth.isLoggedIn.value ? '/dashboard' : '/register'" class="event-public-cta">{{ auth.isLoggedIn.value ? '进入控制台' : '立即报名' }}</RouterLink>
+          <button class="event-mobile-menu-button" type="button" :aria-expanded="mobileMenuOpen" aria-controls="event-mobile-menu" :aria-label="mobileMenuOpen ? '收起导航菜单' : '展开导航菜单'" @click="mobileMenuOpen = !mobileMenuOpen">
+            <Menu v-if="!mobileMenuOpen" :size="18" />
+            <X v-else :size="18" />
+          </button>
         </div>
+        <Transition name="event-menu">
+          <div v-if="mobileMenuOpen" id="event-mobile-menu" class="event-mobile-menu" role="menu" aria-label="页面导航">
+            <RouterLink to="/event" class="event-public-link" role="menuitem" @click="mobileMenuOpen = false"><CalendarDays :size="17" />赛事</RouterLink>
+            <RouterLink to="/team" class="event-public-link" role="menuitem" @click="mobileMenuOpen = false"><Users :size="17" />团队介绍</RouterLink>
+            <RouterLink to="/about" class="event-public-link" role="menuitem" @click="mobileMenuOpen = false"><Info :size="17" />关于我们</RouterLink>
+            <RouterLink v-if="!auth.isLoggedIn.value" to="/login" class="event-public-link" role="menuitem" @click="mobileMenuOpen = false"><LogIn :size="17" />登录</RouterLink>
+            <RouterLink v-if="auth.isLoggedIn.value" to="/dashboard" class="event-public-link" role="menuitem" @click="mobileMenuOpen = false"><LayoutDashboard :size="17" />进入控制台</RouterLink>
+            <RouterLink v-if="auth.isAdmin.value" to="/developer" class="event-public-link" role="menuitem" @click="mobileMenuOpen = false"><ShieldCheck :size="17" />进入后台</RouterLink>
+          </div>
+        </Transition>
       </nav>
+      <div v-if="mobileMenuOpen" class="event-mobile-backdrop" @click="mobileMenuOpen = false"></div>
     </header>
     <nav v-if="showPublicNav && auth.isLoggedIn.value" class="public-mobile-nav" aria-label="移动端快捷导航">
       <RouterLink to="/dashboard"><LayoutDashboard :size="18" /><span>控制台</span></RouterLink>
